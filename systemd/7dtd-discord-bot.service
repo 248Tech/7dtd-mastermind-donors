@@ -1,0 +1,20 @@
+[Unit]
+Description=7DTD Discord Bot (Mastermind Donor Manager)
+After=network.target
+
+[Service]
+Type=simple
+User=sdtdserverbf
+WorkingDirectory=/home/sdtdserverbf/discord_bot
+EnvironmentFile=/home/sdtdserverbf/discord_bot/.env
+ExecStart=/usr/bin/python3 /home/sdtdserverbf/discord_bot/bot.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/home/sdtdserverbf
+
+[Install]
+WantedBy=multi-user.target
