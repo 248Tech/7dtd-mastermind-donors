@@ -1,5 +1,9 @@
 # 🧠 Mastermind Donor Manager
 
+<p align="center">
+  <img src="assets/logo.png" width="400">
+</p>
+
 Power donor management tool for 7 Days to Die server admins using ServerTools. Part of the upcoming Mastermind suite.
 
 ## Features
