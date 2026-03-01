@@ -34,6 +34,26 @@ xml_escape() {
   printf '%s' "$s"
 }
 
+# Escape for XML attribute but do NOT escape apostrophe (for LoginNotice Message; double-quoted attr allows ')
+xml_escape_no_apos() {
+  local s="$1"
+  s="${s//&/&amp;}"
+  s="${s//</&lt;}"
+  s="${s//>/&gt;}"
+  s="${s//\"/&quot;}"
+  printf '%s' "$s"
+}
+
+# Wrap value in brackets only if not already wrapped (for ChatColor NameColor, Prefix, PrefixColor)
+wrap_brackets() {
+  local v="$1"
+  if [[ "${v:0:1}" == "[" && "${v: -1}" == "]" ]]; then
+    printf '%s' "$v"
+  else
+    printf '[%s]' "$v"
+  fi
+}
+
 [[ $# -ge 8 ]] || usage
 
 USERNAME="$1"
@@ -59,8 +79,12 @@ fi
 EXPIRY=$(date -d "+${DAYS} days" "+%Y-%m-%d %H:%M:%S")
 STEAM_ID_ATTR="Steam_${STEAMID}"
 JOINMSG_ESC=$(xml_escape "$JOINMSG")
+JOINMSG_LOGIN=$(xml_escape_no_apos "$JOINMSG")
 USERNAME_ESC=$(xml_escape "$USERNAME")
 PREFIX_ESC=$(xml_escape "$PREFIX")
+CHAT_NAME=$(wrap_brackets "$NAMECOLOR")
+CHAT_PREFIX=$(wrap_brackets "$PREFIX_ESC")
+CHAT_PREFIXCOLOR=$(wrap_brackets "$PREFIXCOLOR")
 
 log "START add_donor user=$USERNAME steamid=$STEAMID days=$DAYS type=$TYPE expiry=$EXPIRY"
 
@@ -115,22 +139,22 @@ xmlstarlet ed -L -s "/*" -t elem -n "Player" -v "" \
   "$RESERVED" || { log_err "Failed to edit ReservedSlots.xml"; exit 1; }
 log "Added to ReservedSlots.xml"
 
-# LoginNotice.xml: Message="JOINMSG" Expiry="EXPIRY"
+# LoginNotice.xml: Message="JOINMSG" Expiry="EXPIRY" (apostrophes not escaped; double-quoted attr)
 xmlstarlet ed -L -s "/*" -t elem -n "Player" -v "" \
   -i "//Player[last()]" -t attr -n "Id" -v "$STEAM_ID_ATTR" \
   -i "//Player[last()]" -t attr -n "Name" -v "$USERNAME_ESC" \
-  -i "//Player[last()]" -t attr -n "Message" -v "$JOINMSG_ESC" \
+  -i "//Player[last()]" -t attr -n "Message" -v "$JOINMSG_LOGIN" \
   -i "//Player[last()]" -t attr -n "Expiry" -v "$EXPIRY" \
   "$LOGINNOTICE" || { log_err "Failed to edit LoginNotice.xml"; exit 1; }
 log "Added to LoginNotice.xml"
 
-# ChatColor.xml: NameColor, Prefix="(PREFIX)", PrefixColor, Expires
+# ChatColor.xml: NameColor="[HEX]", Prefix="[TEXT]", PrefixColor="[HEX]", Expires
 xmlstarlet ed -L -s "/*" -t elem -n "Player" -v "" \
   -i "//Player[last()]" -t attr -n "Id" -v "$STEAM_ID_ATTR" \
   -i "//Player[last()]" -t attr -n "Name" -v "$USERNAME_ESC" \
-  -i "//Player[last()]" -t attr -n "NameColor" -v "$NAMECOLOR" \
-  -i "//Player[last()]" -t attr -n "Prefix" -v "($PREFIX_ESC)" \
-  -i "//Player[last()]" -t attr -n "PrefixColor" -v "$PREFIXCOLOR" \
+  -i "//Player[last()]" -t attr -n "NameColor" -v "$CHAT_NAME" \
+  -i "//Player[last()]" -t attr -n "Prefix" -v "$CHAT_PREFIX" \
+  -i "//Player[last()]" -t attr -n "PrefixColor" -v "$CHAT_PREFIXCOLOR" \
   -i "//Player[last()]" -t attr -n "Expires" -v "$EXPIRY" \
   "$CHATCOLOR" || { log_err "Failed to edit ChatColor.xml"; exit 1; }
 log "Added to ChatColor.xml"
