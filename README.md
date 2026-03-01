@@ -28,6 +28,7 @@ Deploy under the server user’s home so scripts and bot can read/write config a
 /home/sdtdserverbf/
 ├── add_donor.sh
 ├── cleanup_expired.sh
+├── update.sh            ← for systemd timer (optional)
 ├── discord_bot/
 │   ├── bot.py
 │   └── .env          ← create from .env.example (do not commit)
@@ -54,7 +55,7 @@ Deploy under the server user’s home so scripts and bot can read/write config a
    ```
 
 2. **Deploy files** to `/home/sdtdserverbf/` (e.g. clone repo or copy):
-   - `add_donor.sh`, `cleanup_expired.sh`
+   - `add_donor.sh`, `cleanup_expired.sh`, `update.sh`
    - `discord_bot/bot.py`, `discord_bot/.env.example`
 
 3. **Create `.env`** from the example (do not commit real `.env`):
@@ -70,6 +71,7 @@ Deploy under the server user’s home so scripts and bot can read/write config a
    sudo chown -R sdtdserverbf:sdtdserverbf /home/sdtdserverbf
    sudo chmod 750 /home/sdtdserverbf/add_donor.sh
    sudo chmod 750 /home/sdtdserverbf/cleanup_expired.sh
+   sudo chmod 750 /home/sdtdserverbf/update.sh
    sudo chmod 750 /home/sdtdserverbf/discord_bot
    touch /home/sdtdserverbf/donation_actions.log /home/sdtdserverbf/donation_cleanup.log
    sudo chown sdtdserverbf:sdtdserverbf /home/sdtdserverbf/donation_actions.log /home/sdtdserverbf/donation_cleanup.log
@@ -144,6 +146,59 @@ Add:
 ```
 0 3 * * * /home/sdtdserverbf/cleanup_expired.sh
 ```
+
+## Auto Updates (systemd timer)
+
+The repo includes an optional **oneshot service + timer** that updates the installation to the **latest release tag** (e.g. `v1.0.0`, `v1.0.1`) daily. It does **not** track `main`; it only checks out the newest `v*` tag, so production stays on released versions.
+
+**Behavior:**
+
+- Fetches tags, selects the latest semver `v*` tag, checks it out.
+- Updates the Python venv if present (`venv/bin/pip install -r requirements.txt`).
+- Restarts `7dtd-discord-bot`.
+- Logs to `donation_actions.log` with `[UPDATE]` prefix.
+- If the working tree has local changes, the script logs and exits without updating (no dirty state).
+
+**Install and enable (run on the server):**
+
+```bash
+# Copy service and timer
+sudo cp systemd/7dtd-mastermind-update.service /etc/systemd/system/
+sudo cp systemd/7dtd-mastermind-update.timer /etc/systemd/system/
+
+# Ensure update.sh is executable and owned by sdtdserverbf
+sudo chown sdtdserverbf:sdtdserverbf /home/sdtdserverbf/update.sh
+sudo chmod 750 /home/sdtdserverbf/update.sh
+
+# Enable and start the timer (runs daily at 03:05 with up to 10 min random delay)
+sudo systemctl daemon-reload
+sudo systemctl enable --now 7dtd-mastermind-update.timer
+
+# Verify timer is active
+sudo systemctl list-timers 7dtd-mastermind-update.timer
+```
+
+**Manual update (run once now):**
+
+```bash
+sudo systemctl start 7dtd-mastermind-update
+```
+
+**Check update logs:**
+
+```bash
+sudo journalctl -u 7dtd-mastermind-update -n 200 --no-pager
+```
+
+**Rollback:** To pin to an older release, run as `sdtdserverbf` (or with appropriate permissions): `git checkout v1.0.0` (or another tag), then `sudo systemctl restart 7dtd-discord-bot`.
+
+**sudoers (documentation only):** The update script runs as `sdtdserverbf` and runs `sudo systemctl restart 7dtd-discord-bot`. To allow that without a password prompt, add (e.g. via `sudo visudo`):
+
+```
+sdtdserverbf ALL=NOPASSWD: /bin/systemctl restart 7dtd-discord-bot
+```
+
+Do not edit sudoers automatically; configure this on the server as needed.
 
 ## Discord Commands
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Mastermind Donor Manager update daily (latest v* tag)
+Requires=7dtd-mastermind-update.service
+
+[Timer]
+OnCalendar=*-*-* 03:05:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

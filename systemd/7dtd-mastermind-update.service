@@ -1,0 +1,17 @@
+[Unit]
+Description=Mastermind Donor Manager — update to latest release tag
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=sdtdserverbf
+WorkingDirectory=/home/sdtdserverbf
+ExecStart=/home/sdtdserverbf/update.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/home/sdtdserverbf
+
+[Install]
+WantedBy=multi-user.target
