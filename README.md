@@ -161,6 +161,165 @@ Validation: `steamid` numeric, `days` numeric and ≥ 1 (max 3650). The bot call
 - **Script hardening**: Bash scripts use `set -euo pipefail`; inputs validated; XML escaped for attributes.
 - **Service hardening**: systemd unit uses `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ReadWritePaths` limited to `/home/sdtdserverbf`.
 
+# ⚠️ Important Installation Clarifications (Real-World Deployment Notes)
+
+The following issues were encountered during a full production deployment on Debian 12 (Bookworm). These steps clarify requirements not fully explained in the original Quick Start.
+
+---
+
+## 1️⃣ systemd Path Correction
+
+The Quick Start references:
+
+    sudo cp /tmp/mastermind-donor/systemd/7dtd-discord-bot.service /etc/systemd/system/
+
+This path only works if the repo was copied into /tmp using SCP.
+
+If cloned normally:
+
+    git clone https://github.com/248Tech/7dtd-mastermind-donors
+    cd 7dtd-mastermind-donors
+
+The correct command is:
+
+    sudo cp systemd/7dtd-discord-bot.service /etc/systemd/system/
+
+Then:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now 7dtd-discord-bot
+
+---
+
+## 2️⃣ Python Virtual Environment Is REQUIRED (Recommended)
+
+The bot will fail with:
+
+    ModuleNotFoundError: No module named 'discord'
+
+Unless dependencies are installed.
+
+Recommended setup:
+
+    cd /home/sdtdserverbf/discord_bot
+    python3 -m venv venv
+    ./venv/bin/pip install -r requirements.txt
+
+Then update systemd ExecStart to:
+
+    ExecStart=/home/sdtdserverbf/discord_bot/venv/bin/python /home/sdtdserverbf/discord_bot/bot.py
+
+Reload:
+
+    sudo systemctl daemon-reload
+    sudo systemctl restart 7dtd-discord-bot
+
+Without this, system Python will not see discord.py.
+
+---
+
+## 3️⃣ Required Discord Privileged Gateway Intents
+
+Because the bot uses:
+
+    intents.message_content = True
+    intents.members = True
+
+You MUST enable BOTH in the Discord Developer Portal:
+
+Developer Portal → Bot → Privileged Gateway Intents
+
+Enable:
+- Message Content Intent
+- Server Members Intent
+
+If not enabled:
+- Prefix commands will not trigger
+- Role checks may silently fail
+
+---
+
+## 4️⃣ Role Name Must Match EXACTLY
+
+The bot restricts commands to:
+
+    REQUIRED_ROLE = "Server Admin"
+
+This role must:
+- Exist in Discord
+- Match case and spacing exactly
+- Be assigned to the user running commands
+
+Otherwise users will see:
+
+    Only members with the role "Server Admin" can use this command.
+
+---
+
+## 5️⃣ Channel Permissions Can Block the Bot
+
+Even if the bot is online and invited correctly, it will fail with:
+
+    403 Forbidden (error code: 50013): Missing Permissions
+
+If it lacks channel-level permissions.
+
+In each channel the bot operates in, ensure:
+
+- View Channel
+- Send Messages
+- Read Message History
+
+Channel overrides can block the bot even if server role permissions allow it.
+
+---
+
+## 6️⃣ Use sudo for systemd Logs
+
+Running:
+
+    journalctl -u 7dtd-discord-bot -f
+
+Will not show logs without permission.
+
+Correct:
+
+    sudo journalctl -u 7dtd-discord-bot -f
+
+---
+
+## 7️⃣ Final Verification Checklist
+
+Working state should show:
+
+    sudo systemctl status 7dtd-discord-bot
+
+Active: active (running)
+
+And logs:
+
+    discord.gateway: Shard ID None has connected to Gateway
+
+Then in Discord:
+
+    !cleanup
+
+Should respond without permission or 403 errors.
+
+---
+
+## 8️⃣ Recommended Improvements
+
+For production stability:
+
+- Always use a Python virtual environment
+- Explicitly document required gateway intents
+- Clarify systemd path usage
+- Add a troubleshooting section to README
+- Consider allowing multiple admin roles instead of single hardcoded role
+
+---
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
